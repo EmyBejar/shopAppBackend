@@ -1,1 +1,1 @@
-# shopAppBackend
+# nodejs-aws-cdk-starter
