@@ -1,0 +1,19 @@
+service: shop-functions
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+
+functions:
+  getProductsList:
+    handler: handlers.getProductsList
+    events:
+      - http:
+          path: /products
+          method: get
+  getProductsById:
+    handler: handlers.getProductsById
+    events:
+      - http:
+          path: /products/{productId}
+          method: get
