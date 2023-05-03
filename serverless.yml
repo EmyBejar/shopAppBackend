@@ -11,9 +11,24 @@ functions:
       - http:
           path: /products
           method: get
+    environment:
+      PRODUCTS_TABLE: products
+      STOCK_TABLE: stock
   getProductsById:
     handler: handlers.getProductsById
     events:
       - http:
           path: /products/{productId}
           method: get
+    environment:
+      PRODUCTS_TABLE: products
+      STOCK_TABLE: stock
+  createProduct:
+    handler: handlers.createProduct
+    events:
+      - http:
+          path: /products
+          method: post
+    environment:
+      PRODUCTS_TABLE: products
+      STOCK_TABLE: stock
