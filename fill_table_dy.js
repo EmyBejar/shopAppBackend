@@ -26,7 +26,7 @@ const products = [
 
 products.forEach(async (product) => {
   const params = {
-    TableName: 'products',
+    TableName: 'product',
     Item: {
         'id': {S: product.id},
         'title': {S: product.title},
