@@ -1,0 +1,5 @@
+{
+    "REGION": "",
+    "STAGE": "dev",
+    "S3_BUCKET_FILES":"emmauploaded"
+}

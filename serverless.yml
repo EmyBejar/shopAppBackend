@@ -1,25 +1,29 @@
-service: shop
+service: my-shop
 
 provider:
   name: aws
   runtime: nodejs14.x
   memorySize: 256
-  timeout: 10
   iamRoleStatements:
     - Effect: Allow
       Action:
         - dynamodb:Scan
-      Resource: "arn:aws:dynamodb:us-east-1:130956142913:table/product"
+        - s3:PutObject
+        - s3:GetSignedUrl
+        - s3:ListBucket
+      Resource:
+        - "arn:aws:dynamodb:us-east-1:130956142913:table/product"
+        - "arn:aws:s3:::emmauploaded/uploaded/*"
 
 plugins:
   - serverless-webpack
-  
+
 package:
   individually: true
-  
+
 functions:
   getProductsList:
-    handler: handlers.getProductsList
+    handler: functions/handlers.getProductsList
     events:
       - http:
           path: /products
@@ -29,7 +33,7 @@ functions:
       STOCK_TABLE: stock
 
   getProductsById:
-    handler: handlers.getProductsById
+    handler: functions/handlers.getProductsById
     events:
       - http:
           path: /products/{productId}
@@ -39,7 +43,7 @@ functions:
       STOCK_TABLE: stock
 
   createProduct:
-    handler: handlers.createProduct
+    handler: functions/handlers.createProduct
     events:
       - http:
           path: /products
@@ -48,3 +52,25 @@ functions:
       PRODUCTS_TABLE: product
       STOCK_TABLE: stock
 
+  importProductsFile:
+    handler: functions/handlers.importProductsFile
+    events:
+      - http:
+          path: /import
+          method: get
+          request:
+            parameters:
+              querystrings:
+                name: true
+    environment:
+      PRODUCTS_TABLE: product
+      STOCK_TABLE: stock
+
+  importFileParser:
+    handler: functions/handlers.importFileParser
+    events:
+      - s3:
+          bucket: emmauploaded
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploaded/
