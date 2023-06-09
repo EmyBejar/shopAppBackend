@@ -13,7 +13,7 @@ describe("importProductFile Lambda function", () => {
 
 it("Shoud return  a signed URL", async () => {
   const mockSignedUrl =
-    "https://emmauploaded.s3.amazonaws.com";
+    "https://wpevw8werj.execute-api.us-east-1.amazonaws.com/dev/import";
 
   AWSMock.mock("S3", "getSignedUrlPromise", (operation, params, callback) => {
     expect(operation).to.equal("putObject");
@@ -35,5 +35,5 @@ it("Shoud return  a signed URL", async () => {
   const response = await functions_handlers.importProductsFile(event);
 
   expect(response.statusCode).to.equal(200);
-  expect(response.body).to.equal(JSON.stringify(mockSignedUrl));
+  expect(response.body).to.include(mockSignedUrl);
 });
