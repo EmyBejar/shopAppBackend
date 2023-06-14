@@ -11,9 +11,12 @@ provider:
         - s3:PutObject
         - s3:GetSignedUrl
         - s3:ListBucket
+        - sqs:SendMessage
       Resource:
         - "arn:aws:dynamodb:us-east-1:130956142913:table/product"
         - "arn:aws:s3:::emmauploaded/uploaded/*"
+        - "arn:aws:sqs:us-east-1:130956142913:catalogItemsQueue"
+        - "arn:aws:sns:us-east-1:130956142913:createProductTopic"
 
 plugins:
   - serverless-webpack
@@ -74,3 +77,35 @@ functions:
           event: s3:ObjectCreated:*
           rules:
             - prefix: uploaded/
+
+  catalogBatchProcess:
+    handler: functions/handlers.catalogBatchProcess
+    events:
+      - sqs:
+          arn: arn:aws:sqs:us-east-1:130956142913:catalogItemsQueue
+          batchSize: 5
+    environment:
+      PRODUCTS_TABLE: product
+      CREATE_PRODUCT_TOPIC_ARN: 
+        Ref: createProductTopic
+
+resources:
+  Resources:
+    catalogItemsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: catalogItemsQueue
+
+    createProductTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: createProductTopic
+
+    createProductSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: vexapem@gmail.com
+        Protocol: email
+        TopicArn:
+          Ref: createProductTopic
+

@@ -1,7 +1,8 @@
 const AWS = require("aws-sdk");
 const { v4: uuidv4 } = require("uuid");
-const csv = require('csv-parser');
+const csv = require("csv-parser");
 const s3 = new AWS.S3();
+const sqs = new AWS.SQS();
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE;
@@ -123,14 +124,14 @@ module.exports.createProduct = async (event) => {
 module.exports.importProductsFile = async (event) => {
   const { name } = event.queryStringParameters;
   const params = {
-    Bucket: 'emmauploaded',
+    Bucket: "emmauploaded",
     Key: `uploaded/${name}`,
-    Expires: 3600, 
-    ContentType: 'text/csv',
+    Expires: 3600,
+    ContentType: "text/csv",
   };
 
   try {
-    const signedUrl = await s3.getSignedUrlPromise('putObject', params);
+    const signedUrl = await s3.getSignedUrlPromise("putObject", params);
     return {
       statusCode: 200,
       headers: {
@@ -146,47 +147,83 @@ module.exports.importProductsFile = async (event) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Credentials": true,
       },
-      body: JSON.stringify({ error: 'Failed to generate signed URL' }),
+      body: JSON.stringify({ error: "Failed to generate signed URL" }),
     };
   }
 };
 
 module.exports.importFileParser = async (event) => {
-  const records = [];
+  try {
+    for (const record of event.Records) {
+      const bucket = record.s3.bucket.name;
+      const key = record.s3.object.key;
 
-  for (const record of event.Records) {
-    const bucket = record.s3.bucket.name;
-    const key = record.s3.object.key;
+      const params = {
+        Bucket: bucket,
+        Key: key,
+      };
 
-    const params = {
-      Bucket: bucket,
-      Key: key,
-    };
+      const stream = s3.getObject(params).createReadStream();
 
-    const stream = s3.getObject(params).createReadStream();
+      const parser = stream.pipe(csvParser());
 
-    await new Promise((resolve, reject) => {
-      stream
-        .pipe(csv())
-        .on('data', (data) => {
-          console.log("data of", data);
-          records.push(data);
-        })
-        .on('error', (error) => reject(error))
-        .on('end', () => resolve());
-    });
-  }
+      for await (const data of parser) {
 
-  return {
-    statusCode: 200,
-    headers: {
+        await sqs
+          .sendMessage({
+            QueueUrl:
+              "https://sqs.us-east-1.amazonaws.com/130956142913/catalogItemsQueue",
+            MessageBody: JSON.stringify(data),
+          })
+          .promise();
+      }
+    }
+
+    return {
+      statusCode: 202,
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Credentials": true,
-    },
-    body: JSON.stringify(records),
-  };
+      body: "CSV records sent to SQS successfully",
+    };
+  } catch (error) {
+    console.error("Error processing CSV:", error);
+    throw error;
+  }
 };
 
+module.exports.catalogBatchProcess = async (event) => {
+  try {
+    const sns = new AWS.SNS();
+    const topicArn = process.env.CREATE_PRODUCT_TOPIC_ARN;
 
+    for (const { body } of event.Records) {
+      const product = JSON.parse(body);
+      await createProduct(product);
+    }
 
+    await sns.publish({
+      TopicArn: topicArn,
+      MessageStructure: 'json',
+      Message: 'Products created successfully',
+    }).promise();
 
+    return {
+      statusCode: 200,
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Credentials": true,
+      body: 'Batch process completed successfully',
+    };
+  } catch (error) {
+    console.error('Error processing batch:', error);
+    throw error;
+  }
+};
+
+const createProduct = async (product) => {
+  const params = {
+    TableName: "products",
+    Item: product,
+  };
+
+  await dynamodb.put(params).promise();
+};
