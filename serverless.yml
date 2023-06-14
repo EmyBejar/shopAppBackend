@@ -109,3 +109,14 @@ resources:
         TopicArn:
           Ref: createProductTopic
 
+    createProductSubscriptionPrice:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Endpoint: daniela@gmail.com
+        Protocol: email
+        TopicArn:
+          Ref: createProductTopic
+        FilterPolicy:
+          price:
+            ["50", { "numeric": [">=", 50] }]
+
